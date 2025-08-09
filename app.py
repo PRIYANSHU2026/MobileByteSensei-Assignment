@@ -549,7 +549,7 @@ def analyze_reel_with_ai(reel: dict) -> dict:
         }
 
 
-def scrape_instagram_reels(driver, target: str) -> list:
+def scrape_instagram_reels(driver, target: str, max_reels: int = 10) -> list:
     """Scrape public Instagram reels using Selenium"""
     reels = []
 
@@ -599,8 +599,8 @@ def scrape_instagram_reels(driver, target: str) -> list:
 
         st.success(f"Found {len(reel_urls)} potential reels")
 
-        # Process up to 5 reels
-        for i, url in enumerate(list(reel_urls)[:5]):
+        # Process up to max_reels
+        for i, url in enumerate(list(reel_urls)[:max_reels]):
             try:
                 st.info(f"Processing reel {i + 1}: {url}")
 
@@ -627,7 +627,7 @@ def scrape_instagram_reels(driver, target: str) -> list:
     return reels
 
 
-def scrape_with_instaloader(target: str, max_reels: int = 5) -> list:
+def scrape_with_instaloader(target: str, max_reels: int = 10) -> list:
     """Scrape Instagram reels using Instaloader"""
     reels = []
     L = instaloader.Instaloader()
@@ -732,6 +732,16 @@ with st.sidebar:
         index=0,
         help="Instaloader is more reliable but requires login. Selenium works without login but may be slower."
     )
+    
+    # Number of reels to fetch
+    max_reels = st.slider(
+        "Number of Reels to Fetch",
+        min_value=1,
+        max_value=20,
+        value=10,
+        step=1,
+        help="Select how many reels you want to analyze. More reels will take longer to process."
+    )
 
     # Add login toggle
     use_login = st.checkbox("Use Instagram Login", value=True)
@@ -768,7 +778,7 @@ if analyze_btn and target:
     # Use Instaloader if selected
     if "Instaloader" in scraping_method:
         with st.spinner("Scraping with Instaloader..."):
-            reels = scrape_with_instaloader(target)
+            reels = scrape_with_instaloader(target, max_reels=max_reels)
 
             if not reels:
                 st.error("No public reels found. Try a different hashtag or profile.")
@@ -822,7 +832,7 @@ if analyze_btn and target:
 
             with st.status("Scraping Instagram...", expanded=True) as status:
                 st.write(f"Searching for: {target}")
-                reels = scrape_instagram_reels(driver, target)
+                reels = scrape_instagram_reels(driver, target, max_reels=max_reels)
 
                 if not reels:
                     st.error("No public reels found. Try a different hashtag or profile.")
