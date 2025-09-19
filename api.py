@@ -81,26 +81,66 @@ def login_to_instagram(driver):
         print("Logging in to Instagram...")
         driver.get("https://www.instagram.com/accounts/login/")
 
-        # Wait for login page to load
-        WebDriverWait(driver, 15).until(
-            EC.presence_of_element_located((By.NAME, "username"))
-        )
+        # Wait for login page to load with more time and better error handling
+        try:
+            WebDriverWait(driver, 20).until(
+                EC.presence_of_element_located((By.NAME, "username"))
+            )
+        except TimeoutException:
+            print("Login page did not load properly. Trying alternative approach...")
+            # Try refreshing the page
+            driver.refresh()
+            time.sleep(5)
 
-        # Fill credentials
-        username_field = driver.find_element(By.NAME, "username")
-        password_field = driver.find_element(By.NAME, "password")
-
-        username_field.send_keys(INSTA_USER)
-        password_field.send_keys(INSTA_PASS)
-
-        # Click login button
-        login_button = driver.find_element(By.XPATH, "//button[@type='submit']")
-        login_button.click()
-
-        # Wait for login to complete
-        WebDriverWait(driver, 15).until(
-            EC.presence_of_element_located((By.XPATH, "//div[@class='_aagx']"))
-        )
+        # Fill credentials with explicit waits
+        try:
+            username_field = WebDriverWait(driver, 10).until(
+                EC.element_to_be_clickable((By.NAME, "username"))
+            )
+            password_field = WebDriverWait(driver, 10).until(
+                EC.element_to_be_clickable((By.NAME, "password"))
+            )
+            
+            # Clear fields before entering text
+            username_field.clear()
+            password_field.clear()
+            
+            # Type slowly to mimic human behavior
+            for char in INSTA_USER:
+                username_field.send_keys(char)
+                time.sleep(0.1)
+            
+            for char in INSTA_PASS:
+                password_field.send_keys(char)
+                time.sleep(0.1)
+                
+            # Click login button with explicit wait
+            login_button = WebDriverWait(driver, 10).until(
+                EC.element_to_be_clickable((By.XPATH, "//button[@type='submit']")
+            ))
+            login_button.click()
+            
+            # Wait for login to complete - try multiple possible elements
+            try:
+                WebDriverWait(driver, 20).until(
+                    EC.any_of(
+                        EC.presence_of_element_located((By.XPATH, "//div[@class='_aagx']")),
+                        EC.presence_of_element_located((By.XPATH, "//span[contains(text(), 'Search')]")),
+                        EC.presence_of_element_located((By.XPATH, "//a[contains(@href, '/direct/inbox/')]")),
+                        EC.presence_of_element_located((By.XPATH, "//a[contains(@href, '/explore/')]")),
+                        EC.presence_of_element_located((By.XPATH, "//svg[@aria-label='Home']")),
+                        EC.presence_of_element_located((By.XPATH, "//svg[@aria-label='Search']")),
+                        EC.presence_of_element_located((By.XPATH, "//svg[@aria-label='Explore']")),
+                        EC.presence_of_element_located((By.XPATH, "//svg[@aria-label='Reels']")),
+                        EC.presence_of_element_located((By.XPATH, "//svg[@aria-label='Direct']")),
+                        EC.presence_of_element_located((By.XPATH, "//svg[@aria-label='Profile']")),
+                    )
+                )
+            except TimeoutException:
+                print("Could not confirm successful login, but continuing...")
+        except Exception as e:
+            print(f"Error during login form interaction: {str(e)}")
+            return False
 
         # Check for "Save Your Login Info?" prompt and click "Not Now"
         try:
@@ -178,17 +218,21 @@ def extract_instagram_data(driver, url):
 
         # Extract reel ID from URL
         reel_id = url.split("/reel/")[1].split("/")[0]
-
-        # Get video URL
-        video_url = ""
+        
+        # Format the Reel_link URL to match Instagram reel link structure
+        # Instead of using blob URL, use the standard Instagram reel URL format
+        video_url = f"https://www.instagram.com/reel/{reel_id}/"
+        
+        # Keep the original video source extraction for backup
+        original_video_src = ""
         try:
             video_element = driver.find_element(By.TAG_NAME, "video")
-            video_url = video_element.get_attribute("src")
+            original_video_src = video_element.get_attribute("src")
         except:
             try:
                 # Alternative method to find video
                 video_element = driver.find_element(By.XPATH, "//video[@type='video/mp4']")
-                video_url = video_element.get_attribute("src")
+                original_video_src = video_element.get_attribute("src")
             except:
                 print("Could not find video element")
 
@@ -218,20 +262,62 @@ def extract_instagram_data(driver, url):
         except:
             print("Could not find creator info")
 
-        # Get metrics (likes, views)
+        # Get metrics (likes, views) - updated selectors
         likes = 0
         views = 0
         try:
-            metrics_elements = driver.find_elements(By.XPATH, "//span[@class='_aacl _aaco _aacw _aacx _aad7 _aade']")
-            if len(metrics_elements) >= 2:
-                likes_text = metrics_elements[0].text
-                views_text = metrics_elements[1].text
-                
-                # Convert K, M to numbers
-                likes = parse_count(likes_text)
-                views = parse_count(views_text)
-        except:
-            print("Could not find metrics")
+            # Updated selector for metrics
+            metrics_spans = driver.find_elements(By.XPATH,
+                                                 '//span[contains(@class, "x193iq5w") or contains(@class, "x1lliihq")]')
+
+            # Alternative: look for specific text patterns
+            page_source = driver.page_source
+            likes_match = re.search(r'(\d+[\d,.]*[KkMm]?)\s*likes', page_source, re.IGNORECASE)
+            views_match = re.search(r'(\d+[\d,.]*[KkMm]?)\s*views', page_source, re.IGNORECASE)
+
+            if likes_match:
+                likes_text = likes_match.group(1).replace(",", "").replace(".", "")
+                if "K" in likes_text or "k" in likes_text:
+                    likes = int(float(likes_text.lower().replace("k", "")) * 1000)
+                elif "M" in likes_text or "m" in likes_text:
+                    likes = int(float(likes_text.lower().replace("m", "")) * 1000000)
+                elif likes_text.isdigit():
+                    likes = int(likes_text)
+
+            if views_match:
+                views_text = views_match.group(1).replace(",", "").replace(".", "")
+                if "K" in views_text or "k" in views_text:
+                    views = int(float(views_text.lower().replace("k", "")) * 1000)
+                elif "M" in views_text or "m" in views_text:
+                    views = int(float(views_text.lower().replace("m", "")) * 1000000)
+                elif views_text.isdigit():
+                    views = int(views_text)
+
+            # If regex fails, try to find with spans
+            if likes == 0 and views == 0:
+                for span in metrics_spans:
+                    text = span.text.lower()
+                    # Extract likes
+                    if "like" in text or "likes" in text:
+                        likes_text = text.replace("likes", "").replace("like", "").replace(",", "").replace(".", "").strip()
+                        if "k" in likes_text:
+                            likes = int(float(likes_text.replace("k", "")) * 1000)
+                        elif "m" in likes_text:
+                            likes = int(float(likes_text.replace("m", "")) * 1000000)
+                        elif likes_text.isdigit():
+                            likes = int(likes_text)
+                    
+                    # Extract views
+                    if "view" in text or "views" in text:
+                        views_text = text.replace("views", "").replace("view", "").replace(",", "").replace(".", "").strip()
+                        if "k" in views_text:
+                            views = int(float(views_text.replace("k", "")) * 1000)
+                        elif "m" in views_text:
+                            views = int(float(views_text.replace("m", "")) * 1000000)
+                        elif views_text.isdigit():
+                            views = int(views_text)
+        except Exception as e:
+            print(f"Could not find metrics: {str(e)}")
 
         # Get upload date
         upload_date = ""
@@ -303,9 +389,17 @@ def extract_instagram_data(driver, url):
             print(f"Error extracting comments: {str(e)}")
 
         # Construct reel data dictionary
+        # Ensure Reel_link URL has reel_id at the end
+        if video_url and reel_id and "?" not in video_url:
+            # Add reel_id as a parameter to the video URL
+            video_url = f"{video_url}?reel_id={reel_id}"
+        elif video_url and reel_id:
+            # URL already has parameters, append reel_id
+            video_url = f"{video_url}&reel_id={reel_id}"
+            
         reel_data = {
             "reel_id": reel_id,
-            "video_cdn": video_url,
+            "Reel_link": video_url,
             "caption": caption,
             "creator": creator,
             "likes": likes,
@@ -416,7 +510,11 @@ def scrape_instagram_reels(driver, target: str, max_reels: int = 10) -> list:
             url = f"https://www.instagram.com/{username}/"
         elif target.startswith('#'):
             hashtag = target[1:]
-            url = f"https://www.instagram.com/explore/tags/{hashtag}/"
+            # Remove any trailing slashes and strip spaces that might be causing the issue
+            hashtag = hashtag.rstrip('/').strip()
+            # URL encode the hashtag to handle spaces and special characters
+            hashtag = urllib.parse.quote(hashtag)
+            url = f"https://www.instagram.com/explore/tags/{hashtag}"
         else:
             url = f"https://www.instagram.com/{target}/"
 
@@ -543,9 +641,20 @@ def scrape_with_instaloader(target: str, max_reels: int = 10) -> list:
                         "profile": f"https://www.instagram.com/{post.owner_username}/"
                     }
 
+                    # Ensure Reel_link URL has reel_id at the end
+                    video_url = post.video_url
+                    reel_id = post.shortcode
+                    
+                    if video_url and reel_id and "?" not in video_url:
+                        # Add reel_id as a parameter to the video URL
+                        video_url = f"{video_url}?reel_id={reel_id}"
+                    elif video_url and reel_id:
+                        # URL already has parameters, append reel_id
+                        video_url = f"{video_url}&reel_id={reel_id}"
+                    
                     reel_data = {
-                        "reel_id": post.shortcode,
-                        "video_cdn": post.video_url,
+                        "reel_id": reel_id,
+                        "Reel_link": video_url,
                         "caption": post.caption,
                         "creator": creator,
                         "likes": post.likes,
@@ -591,7 +700,7 @@ def analyze_reels():
                 # Create final output structure
                 full_result = {
                     "reel_id": reel.get("reel_id", ""),
-                    "video_cdn": reel.get("video_cdn", ""),
+                    "Reel_link": reel.get("Reel_link", ""),
                     "caption": reel.get("caption", ""),
                     "creator": reel.get("creator", {}),
                     "ai_summary": ai_analysis.get("ai_summary", ""),
@@ -626,7 +735,7 @@ def analyze_reels():
                     # Create final output structure
                     full_result = {
                         "reel_id": reel.get("reel_id", ""),
-                        "video_cdn": reel.get("video_cdn", ""),
+                        "Reel_link": reel.get("Reel_link", ""),
                         "caption": reel.get("caption", ""),
                         "creator": reel.get("creator", {}),
                         "ai_summary": ai_analysis.get("ai_summary", ""),

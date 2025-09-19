@@ -464,7 +464,7 @@ def extract_instagram_data(driver, reel_url: str) -> dict:
 
         return {
             "reel_id": reel_id,
-            "video_cdn": video_url,
+            "Reel_link": video_url,
             "caption": caption,
             "creator": creator,
             "likes": likes,
@@ -690,7 +690,7 @@ def scrape_with_instaloader(target: str, max_reels: int = 10) -> list:
 
                     reel_data = {
                         "reel_id": post.shortcode,
-                        "video_cdn": post.video_url,
+                        "Reel_link": post.video_url,
                         "caption": post.caption,
                         "creator": creator,
                         "likes": post.likes,
@@ -798,7 +798,7 @@ if analyze_btn and target:
                 # Create final output structure
                 full_result = {
                     "reel_id": reel.get("reel_id", ""),
-                    "video_cdn": reel.get("video_cdn", ""),
+                    "Reel_link": reel.get("Reel_link", ""),
                     "caption": reel.get("caption", ""),
                     "creator": reel.get("creator", {}),
                     "ai_summary": ai_analysis.get("ai_summary", ""),
@@ -853,7 +853,7 @@ if analyze_btn and target:
                     # Create final output structure
                     full_result = {
                         "reel_id": reel.get("reel_id", ""),
-                        "video_cdn": reel.get("video_cdn", ""),
+                        "Reel_link": reel.get("Reel_link", ""),
                         "caption": reel.get("caption", ""),
                         "creator": reel.get("creator", {}),
                         "ai_summary": ai_analysis.get("ai_summary", ""),
@@ -893,7 +893,7 @@ if st.session_state.results:
 
             with col1:
                 # Handle video URL
-                video_url = reel.get('video_cdn', '')
+                video_url = reel.get('Reel_link', '')
                 if video_url and not video_url.startswith('blob:'):
                     st.video(video_url)
                 else:

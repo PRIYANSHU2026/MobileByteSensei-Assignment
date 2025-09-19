@@ -65,7 +65,7 @@ Analyzes Instagram reels from a profile, hashtag, or direct URL.
   "results": [
     {
       "reel_id": "CxYZ123ABC",
-      "video_cdn": "https://instagram.fxyz.com/v/t50.12345-16/123456_789012345678901_1234567890123456789_n.mp4",
+      "Reel_link": "https://instagram.fxyz.com/v/t50.12345-16/123456_789012345678901_1234567890123456789_n.mp4",
       "caption": "This is a sample reel caption #trending",
       "creator": {
         "username": "username",

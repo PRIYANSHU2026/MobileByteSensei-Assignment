@@ -37,7 +37,7 @@ data class Comment(
 @Serializable
 data class ReelResult(
     val reel_id: String = "",
-    val video_cdn: String = "",
+    val Reel_link: String = "",
     val caption: String = "",
     val creator: Creator = Creator(),
     val ai_summary: String = "",
