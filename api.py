@@ -4,6 +4,8 @@ import json
 import time
 import os
 import re
+from dotenv import load_dotenv
+from supabase import create_client, Client
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -19,10 +21,27 @@ import instaloader
 from instaloader import Profile, Hashtag, Post
 import requests
 
+# Load environment variables
+load_dotenv()
+
 # Initialize Flask app
 app = Flask(__name__)
 # Enable CORS for all routes
 CORS(app)
+
+# Initialize Supabase client
+SUPABASE_URL = os.getenv("SUPABASE_URL", "")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
+supabase: Client = None
+
+if SUPABASE_URL and SUPABASE_KEY:
+    try:
+        supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+        print("✓ Supabase client initialized successfully")
+    except Exception as e:
+        print(f"✗ Failed to initialize Supabase client: {str(e)}")
+else:
+    print("⚠ Supabase credentials not found in environment variables")
 
 # Initialize embedding model
 try:
@@ -435,6 +454,61 @@ def parse_count(count_text):
         return 0
 
 
+def save_to_supabase(reel_result):
+    """Save reel data to Supabase database"""
+    if not supabase:
+        print("⚠ Supabase client not initialized, skipping database save")
+        return False
+    
+    try:
+        # Prepare reel data for database
+        reel_record = {
+            "reel_id": reel_result.get("reel_id"),
+            "reel_link": reel_result.get("Reel_link"),
+            "caption": reel_result.get("caption"),
+            "creator_username": reel_result.get("creator", {}).get("username"),
+            "creator_profile": reel_result.get("creator", {}).get("profile"),
+            "ai_summary": reel_result.get("ai_summary"),
+            "category": reel_result.get("category", []),
+            "likes": reel_result.get("likes", 0),
+            "views": reel_result.get("views", 0),
+            "sentiment": reel_result.get("sentiment"),
+            "top_comment_summary": reel_result.get("top_comment_summary"),
+            "embeddings": reel_result.get("embeddings", []),
+            "upload_date": reel_result.get("upload_date")
+        }
+        
+        # Insert or update reel in database (upsert)
+        response = supabase.table("instagram_reels").upsert(
+            reel_record,
+            on_conflict="reel_id"
+        ).execute()
+        
+        print(f"✓ Saved reel {reel_result.get('reel_id')} to Supabase")
+        
+        # Save comments separately
+        comments = reel_result.get("top_comments", [])
+        if comments:
+            for comment in comments:
+                comment_record = {
+                    "reel_id": reel_result.get("reel_id"),
+                    "user_name": comment.get("user"),
+                    "comment_text": comment.get("comment"),
+                    "comment_timestamp": comment.get("timestamp")
+                }
+                
+                try:
+                    supabase.table("reel_comments").insert(comment_record).execute()
+                except Exception as e:
+                    # Comment might already exist, skip
+                    pass
+        
+        return True
+        
+    except Exception as e:
+        print(f"✗ Error saving to Supabase: {str(e)}")
+        return False
+
 def analyze_reel_with_ai(reel_data):
     """Analyze reel data using Mistral AI"""
     try:
@@ -710,8 +784,12 @@ def analyze_reels():
                     "sentiment": ai_analysis.get("sentiment", ""),
                     "top_comment_summary": ai_analysis.get("top_comment_summary", ""),
                     "embeddings": ai_analysis.get("embeddings", []),
-                    "top_comments": reel.get("top_comments", [])
+                    "top_comments": reel.get("top_comments", []),
+                    "upload_date": reel.get("upload_date", "")
                 }
+                
+                # Automatically save to Supabase
+                save_to_supabase(full_result)
                 
                 results.append(full_result)
                 
