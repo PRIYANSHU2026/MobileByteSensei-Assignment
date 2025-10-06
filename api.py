@@ -4,6 +4,8 @@ import json
 import time
 import os
 import re
+from supabase_client import supabase_manager
+from ytdlp_downloader import ytdlp_downloader
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -210,14 +212,18 @@ def call_mistral_api(prompt):
 
 
 def extract_instagram_data(driver, url):
-    """Extract data from an Instagram reel"""
+    """Extract data from an Instagram reel with improved selectors"""
     try:
         print(f"Extracting data from: {url}")
         driver.get(url)
-        time.sleep(5)  # Wait for page to load
+        time.sleep(10)  # Wait longer for page to load
 
         # Extract reel ID from URL
         reel_id = url.split("/reel/")[1].split("/")[0]
+        
+        # Scroll page to ensure all content loads
+        driver.execute_script("window.scrollTo(0, 500);")
+        time.sleep(5)
         
         # Format the Reel_link URL to match Instagram reel link structure
         # Instead of using blob URL, use the standard Instagram reel URL format
@@ -687,6 +693,8 @@ def analyze_reels():
     max_reels = data.get('max_reels', 10)
     use_login = data.get('use_login', True)
     scraping_method = data.get('scraping_method', 'instaloader')  # 'selenium' or 'instaloader'
+    save_to_supabase = data.get('save_to_supabase', True)  # Save to Supabase by default
+    use_ytdlp = data.get('use_ytdlp', False)  # Use yt-dlp for CDN links
     
     results = []
     
@@ -712,6 +720,14 @@ def analyze_reels():
                     "embeddings": ai_analysis.get("embeddings", []),
                     "top_comments": reel.get("top_comments", [])
                 }
+                
+                # Use yt-dlp to extract CDN link if requested
+                if use_ytdlp and full_result.get("Reel_link"):
+                    instagram_url = f"https://www.instagram.com/reel/{full_result['reel_id']}/"
+                    cdn_link = ytdlp_downloader.extract_cdn_link(instagram_url)
+                    if cdn_link:
+                        full_result["cdn_link"] = cdn_link
+                        print(f"✓ Extracted CDN link for reel {full_result['reel_id']}")
                 
                 results.append(full_result)
                 
@@ -748,15 +764,31 @@ def analyze_reels():
                         "top_comments": reel.get("top_comments", [])
                     }
                     
+                    # Use yt-dlp to extract CDN link if requested
+                    if use_ytdlp and full_result.get("Reel_link"):
+                        instagram_url = f"https://www.instagram.com/reel/{full_result['reel_id']}/"
+                        cdn_link = ytdlp_downloader.extract_cdn_link(instagram_url)
+                        if cdn_link:
+                            full_result["cdn_link"] = cdn_link
+                            print(f"✓ Extracted CDN link for reel {full_result['reel_id']}")
+                    
                     results.append(full_result)
             finally:
                 if driver:
                     driver.quit()
         
+        # Save to Supabase if requested
+        if save_to_supabase and results:
+            print("\n" + "="*50)
+            print("Saving results to Supabase...")
+            print("="*50)
+            supabase_manager.save_reels_batch(results)
+        
         return jsonify({
             'status': 'success',
             'count': len(results),
-            'results': results
+            'results': results,
+            'saved_to_supabase': save_to_supabase
         })
         
     except Exception as e:

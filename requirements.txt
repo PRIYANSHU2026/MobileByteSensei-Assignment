@@ -1,13 +1,30 @@
-streamlit==1.28.0
-requests==2.31.0
-selenium==4.15.2
-webdriver-manager==4.0.1
-instaloader==4.10
-sentence-transformers==2.2.2
-torch==2.1.0
-pandas==2.1.1
-beautifulsoup4==4.12.2
-tqdm==4.66.1
-urllib3==1.26.18
-flask==2.3.3
-flask-cors==4.0.0
+# Core dependencies
+streamlit>=1.28.0
+requests>=2.31.0
+selenium>=4.15.0
+webdriver-manager>=4.0.0
+instaloader>=4.10.0
+
+# AI/ML dependencies
+sentence-transformers>=2.2.0
+torch>=2.0.0
+transformers>=4.30.0
+
+# Data processing
+pandas>=2.0.0
+beautifulsoup4>=4.12.0
+tqdm>=4.66.0
+
+# Web frameworks
+flask>=3.0.0
+flask-cors>=4.0.0
+
+# Database
+supabase>=2.0.0
+python-dotenv>=1.0.0
+
+# Video downloading
+yt-dlp>=2024.8.0
+
+# Utilities
+urllib3>=2.0.0
