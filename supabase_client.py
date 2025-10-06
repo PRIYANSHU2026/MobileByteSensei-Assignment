@@ -9,9 +9,8 @@ import json
 from datetime import datetime
 
 # Supabase Configuration - USE YOUR CREDENTIALS
-SUPABASE_URL = "https://fhpejjuyljcefcihence.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZocGVqanV5bGpjZWZjaWhlbmNlIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1ODQ0ODEzNywiZXhwIjoyMDc0MDI0MTM3fQ.ziqq7eSpMw8jQs8MvAZvNhwYuMuEdEPXUu069DY3uqM"
-
+SUPABASE_URL = "https://dpytzjrmelnfsjzoheba.supabase.co"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRweXR6anJtZWxuZnNqem9oZWJhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg5MDk2NDksImV4cCI6MjA3NDQ4NTY0OX0.s__opoZMSVG6-yh1lRc7fJES11KoPPTEuW0KuT2sI6U"
 class SupabaseManager:
     """Manage Supabase connections and operations"""
     
